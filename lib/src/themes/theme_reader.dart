@@ -340,8 +340,11 @@ class ThemeReader {
       final haloColor = expressionParser
           .parseOptional(paint['text-halo-color'])
           ?.asColorExpression();
+      final haloBlur = expressionParser
+          .parseOptional(paint['text-halo-blur'])
+          ?.asDoubleExpression();
       if (haloWidth != null && haloColor != null) {
-        return TextHaloFactory.toHaloFunction(haloColor, haloWidth);
+        return TextHaloFactory.toHaloFunction(haloColor, haloWidth, haloBlur);
       }
     }
     return null;

@@ -7,22 +7,28 @@ import 'expression/expression.dart';
 class TextHaloFactory {
   static Expression<List<Shadow>>? toHaloFunction(
     Expression<Color> colorExpression,
-    Expression<double>? haloWidth,
-  ) {
-    return cache(TextHaloExpression(colorExpression, haloWidth));
+    Expression<double>? haloWidth, [
+    Expression<double>? haloBlur,
+  ]) {
+    return cache(TextHaloExpression(colorExpression, haloWidth, haloBlur));
   }
 }
 
 class TextHaloExpression extends Expression<List<Shadow>> {
   final Expression<Color> colorExpression;
   final Expression<double>? haloWidth;
+  final Expression<double>? haloBlur;
 
-  TextHaloExpression(this.colorExpression, this.haloWidth)
-    : super('textHalo(${colorExpression.cacheKey},${haloWidth?.cacheKey})', {
-        ...colorExpression.properties(),
-        ...(haloWidth?.properties() ?? {}),
-        'zoom',
-      });
+  TextHaloExpression(this.colorExpression, this.haloWidth, [this.haloBlur])
+    : super(
+        'textHalo(${colorExpression.cacheKey},${haloWidth?.cacheKey},${haloBlur?.cacheKey})',
+        {
+          ...colorExpression.properties(),
+          ...(haloWidth?.properties() ?? {}),
+          ...(haloBlur?.properties() ?? {}),
+          'zoom',
+        },
+      );
 
   @override
   List<Shadow>? evaluate(EvaluationContext context) {
@@ -36,7 +42,11 @@ class TextHaloExpression extends Expression<List<Shadow>> {
     }
     double factor = max(1.0, context.zoomScaleFactor);
     double offset = width / factor;
-    double radius = width / factor;
+    // `text-halo-blur` is a separate style property whose default is 0: the
+    // halo is a distance from the glyph outline, not a cloud around it.
+    // Previously the blur radius was the halo width, so every label paid for
+    // four blurred draws that the style never asked for.
+    double radius = (haloBlur?.evaluate(context) ?? 0.0) / factor;
     return [
       Shadow(
         offset: Offset(-offset, -offset),
