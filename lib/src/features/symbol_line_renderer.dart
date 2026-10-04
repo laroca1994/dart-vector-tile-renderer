@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../vector_tile_renderer.dart';
 import '../context.dart';
 import '../themes/expression/expression.dart';
@@ -105,7 +107,7 @@ class SymbolLineRenderer extends FeatureRenderer {
       if (saveState) {
         final rotation = rotationAlignment == RotationAlignment.viewport
             ? context.rotation
-            : _rightSideUpAngle(tangentAngle);
+            : rightSideUpAngle(tangentAngle, context.rotation);
         context.canvas.save();
         context.canvas.translate(tangentPosition.dx, tangentPosition.dy);
         context.canvas.rotate(-rotation);
@@ -229,7 +231,7 @@ class SymbolLineRenderer extends FeatureRenderer {
   ) {
     final box = text.labelBox(tangent.position, translated: false);
     if (box != null) {
-      final textSpace = _textSpace(box, text.translation, tangent);
+      final textSpace = _textSpace(box, text.translation, tangent, context.rotation);
       if (context.labelSpace.canOccupy(text.text, textSpace) &&
           text.styledSymbol != null) {
         var preciseBox = _preciselyOccupyLabelSpaceAtTangent(
@@ -251,7 +253,7 @@ class SymbolLineRenderer extends FeatureRenderer {
   ) {
     final box = renderer.labelBox(tangent.position, translated: false);
     if (box != null) {
-      final textSpace = _textSpace(box, renderer.translation, tangent);
+      final textSpace = _textSpace(box, renderer.translation, tangent, context.rotation);
       if (context.labelSpace.canOccupy(renderer.symbol.text, textSpace)) {
         context.labelSpace.occupy(renderer.symbol.text, textSpace);
         return _RenderBox(textSpace, tangent);
@@ -260,15 +262,13 @@ class SymbolLineRenderer extends FeatureRenderer {
     return null;
   }
 
-  double _rightSideUpAngle(double radians) {
-    if (radians > _rotationShiftUpper || radians < _rotationShiftLower) {
-      return radians + _rotationShift;
-    }
-    return radians;
-  }
-
-  Rect _textSpace(Rect box, Offset? translation, Tangent tangent) {
-    final angle = _rightSideUpAngle(tangent.angle);
+  Rect _textSpace(
+    Rect box,
+    Offset? translation,
+    Tangent tangent,
+    double mapRotation,
+  ) {
+    final angle = rightSideUpAngle(tangent.angle, mapRotation);
     final hWidth = (box.height * cos(angle + _ninetyDegrees)).abs();
     final width = hWidth + (box.width * cos(angle)).abs();
     final wHeight = (box.width * sin(angle)).abs();
@@ -295,6 +295,21 @@ class _RenderBox {
 }
 
 const _minPathMetricSize = 100.0;
+
+/// The angle to draw a label at so that it reads right side up on screen.
+///
+/// A tile is rendered north-up and the map then turns it by [mapRotation], so
+/// whether a label at [radians] is upside down depends on the sum of both, not
+/// on the tile's own angle alone.
+@visibleForTesting
+double rightSideUpAngle(double radians, double mapRotation) {
+  var onScreen = (radians + mapRotation) % (2 * pi);
+  if (onScreen > pi) onScreen -= 2 * pi;
+  if (onScreen > _rotationShiftUpper || onScreen < _rotationShiftLower) {
+    return radians + _rotationShift;
+  }
+  return radians;
+}
 
 const _degToRad = pi / 180.0;
 const _rotationOvershot = 3;
